@@ -39,7 +39,7 @@ log = logging.getLogger("31")
 
 # ---------------------------------------------------------------- settings
 
-SERVER_VERSION = "1.0"     # raise with every change you deploy; shown at "/", in the log and in "welcome"
+SERVER_VERSION = "1.1"     # raise with every change you deploy; shown at "/", in the log and in "welcome"
 STARTED = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")   # when this copy of the server started
 TIME_SCALE = 1.0          # multiplies every delay (tests use a tiny value)
 
@@ -1191,12 +1191,22 @@ async def run_server(hub, port):
         await asyncio.get_running_loop().create_future()
 
 
+def quiet_probes(record):
+    """Log filter: False for the library's 'opening handshake failed' lines (port probes)."""
+    return not (record.name.startswith("websockets") and record.getMessage() == "opening handshake failed")
+
+
 def main():
     global TIME_SCALE
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     # the library's own INFO lines can include client addresses: keep them out of the log
     logging.getLogger("websockets").setLevel(logging.WARNING)
-    port = int(os.environ.get("PORT", "8765"))
+    # Render (and web scanners) probe the port with HEAD or other non-WebSocket requests; the
+    # library rejects them before our health check sees them and logs a long traceback each time.
+    # Drop just that message; every other error still shows.
+    for h in logging.getLogger().handlers:
+        h.addFilter(quiet_probes)
+    port =int(os.environ.get("PORT", "8765"))
     TIME_SCALE = float(os.environ.get("TIME_SCALE", "1.0"))
 
     async def go():
