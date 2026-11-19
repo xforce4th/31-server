@@ -39,7 +39,7 @@ log = logging.getLogger("31")
 
 # ---------------------------------------------------------------- settings
 
-SERVER_VERSION = "1.1"     # raise with every change you deploy; shown at "/", in the log and in "welcome"
+SERVER_VERSION = "1.2"     # raise with every change you deploy; shown at "/", in the log and in "welcome"
 STARTED = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")   # when this copy of the server started
 TIME_SCALE = 1.0          # multiplies every delay (tests use a tiny value)
 
@@ -1183,12 +1183,17 @@ async def run_server(hub, port):
 
     def process_request(connection, request):
         if request.headers.get("Upgrade", "").lower() != "websocket":
-            return connection.respond(HTTPStatus.OK, "ok\n")
+            return connection.respond(HTTPStatus.OK, health_text())
         return None
 
     async with serve(handler, "0.0.0.0", port, process_request=process_request, max_size=4096):
         log.info("31 server %s listening on port %d (started %s)", SERVER_VERSION, port, STARTED)
         await asyncio.get_running_loop().create_future()
+
+
+def health_text():
+    """What a plain web request to the server shows: version and start time."""
+    return "ok - 31 server %s, started %s\n" % (SERVER_VERSION, STARTED)
 
 
 def quiet_probes(record):
